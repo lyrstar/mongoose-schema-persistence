@@ -34,12 +34,12 @@ module.exports = function (connection) {
                 if (schema instanceof mongoose.Schema) {
                     let data = schema2json(schema);
                     let update = {$set: {name, data}}
-                    SchemaModel.updateOne({name}, update, {upsert: true}).then();
+                    return SchemaModel.findOneAndUpdate({name}, update, {upsert: true, new: true});
                 }
             } catch (e) {
                 console.error('mongoose-schema-persistence:error:saveSchema:', e);
+                return Promise.reject(e);
             }
-
         },
         getModel: function (name) {
             if (!models[name]) {
