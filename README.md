@@ -23,7 +23,7 @@ const {saveSchema, getModel, loadSchemas} = mongooseSchemaPersistence(connection
 
 ##### saveSchema 保存schema到mongodb
 
-```
+```js
 const LogSchema = new mongoose.Schema({
     accountId: String,
     type: String,
@@ -34,7 +34,7 @@ saveSchema('log', LogSchema)
 
 ##### loadSchemas 加载数据库中已保存的schema, 并创建model实例
 
-```
+```js
 loadSchemas().then(() => {
     console.log(connection.models)
     let model = connection.model('log')
@@ -44,7 +44,10 @@ loadSchemas().then(() => {
 
 ##### getModel 获取单个model实例
 
-```
-let model = getModel('log')
-model.findOne()
+```js
+// getModel()需要loadSchemas()方法执行完成才可以调用, 可以在onLoadSchemas()中传入
+onLoadSchemas(() => {
+    let model = getModel('log')
+    model.findOne()
+});
 ```

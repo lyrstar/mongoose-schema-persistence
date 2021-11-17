@@ -3,30 +3,14 @@ const {schema2json, json2schema} = require('mongoose-schema-json-parse');
 
 module.exports = function (connection) {
     const models = {};
+    const queue = [];
+    let loadSchemasStarted = false;
+    let loadSchemasFinish = false;
     if (!connection) connection = mongoose.connection;
     const SchemaModel = connection.model('_schema', new mongoose.Schema({
         name: {type: String, required: true, unique: true},
         data: String,
     }, {timestamps: true}));
-
-    function wait(name) {
-        const queue = [];
-        const mock = function (model) {
-            queue.forEach(item => item(model));
-            models[name] = model;
-        };
-
-        for (let attr in SchemaModel) {
-            if (typeof SchemaModel[attr] === 'function') {
-                mock[attr] = function (...args) {
-                    return new Promise(resolve => {
-                        queue.push(model => resolve(model[attr](...args)));
-                    });
-                }
-            }
-        }
-        return mock;
-    }
 
     return {
         saveSchema: function (name, schema) {
@@ -42,30 +26,13 @@ module.exports = function (connection) {
             }
         },
         getModel: function (name) {
-            if (!models[name]) {
-                models[name] = wait(name);
-                SchemaModel.findOne({name})
-                    .then(_schema => {
-                        if (_schema) {
-                            let schema = json2schema(_schema.data);
-                            let model;
-                            try {
-                                model = connection.model(name);
-                            } catch (e) {
-                                model = connection.model(name, schema);
-                            }
-                            return models[name](model);
-                        }
-                        delete models[name];
-                    })
-                    .catch(e => {
-                        delete models[name];
-                        console.error('mongoose-schema-persistence:getModel:error:', e);
-                    });
-            }
-            return models[name];
+            if (!loadSchemasStarted) throw Error('请先使用\"loadSchemasStarted()\"方法加载数据模型')
+            if (!loadSchemasFinish) throw Error('请等待数据模型加载完成')
+            if (models[name]) return models[name];
+            throw Error('为定义的数据模型: ' + name);
         },
         loadSchemas: function () {
+            loadSchemasStarted = true;
             return SchemaModel.find()
                 .then(_schemaList => {
                     for (let _schema of _schemaList) {
@@ -76,11 +43,16 @@ module.exports = function (connection) {
                             models[_schema.name] = connection.model(_schema.name, json2schema(_schema.data));
                         }
                     }
+                    loadSchemasFinish = true;
+                    queue.forEach(cb => cb());
                 })
                 .catch(e => {
                     console.error('mongoose-schema-persistence:loadSchemas:error:', e);
                 });
 
         },
+        onLoadSchemas: function (cb) {
+            if (typeof cb === 'function') queue.push(cb);
+        }
     };
 }

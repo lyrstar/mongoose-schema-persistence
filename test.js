@@ -1,7 +1,7 @@
 const mongoose = require('mongoose');
 
 const connection = mongoose.createConnection('mongodb://localhost:27017/om');
-const {saveSchema, getModel, loadSchemas} = require('./index')(connection);
+const {saveSchema, getModel, loadSchemas, onLoadSchemas} = require('./index')(connection);
 
 const LogSchema = new mongoose.Schema({
     accountId: String,
@@ -11,12 +11,13 @@ const LogSchema = new mongoose.Schema({
 
 
 saveSchema('log', LogSchema);
-saveSchema('log2', LogSchema);
 
-loadSchemas();
+loadSchemas().then(() => {
+    console.log('load success')
+})
 
-let model = getModel('log')
-let model2 = getModel('log2')
+onLoadSchemas(() => {
+    let model = getModel('log')
+    model.find({accountId: '1'}).then(list => console.log('test:model:log:list:', list)).catch(e => console.error(e));
+});
 
-model.find({accountId: '1'}).then(list => console.log('test:model:log:list:', list)).catch(e => console.error(e));
-model2.find({accountId: '1'}).then(list => console.log('test:model2:log:list:', list)).catch(e => console.error(e));
